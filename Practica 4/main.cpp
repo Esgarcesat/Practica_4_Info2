@@ -6,26 +6,28 @@ using namespace std;
 int main() {
     Red miRed;
 
-    // 1. Construimos la topologia de la Figura 1 de la guia
-    // Enlaces: A-B (4), A-C (10), B-D (1), C-D (2)
+    // 1. Cargamos los enlaces fisicos de la Figura 1 de la guia
     miRed.agregarOActualizarEnlace('A', 'B', 4);
     miRed.agregarOActualizarEnlace('A', 'C', 10);
     miRed.agregarOActualizarEnlace('B', 'D', 1);
     miRed.agregarOActualizarEnlace('C', 'D', 2);
 
-    cout << ">>> ESTADO INICIAL (FIGURA 1 DE LA GUIA):";
-    miRed.mostrarDiagramaRed();
+    // 2. Verificamos la Matriz Global de Costos Minimos (Paginas 2 y 3 del PDF)
+    miRed.mostrarMatrizCostosMinimos();
 
-    // 2. Simulamos prueba de sustentacion: Agregar nodo 'E' conectado a 'C' con costo 5
-    cout << "\n>>> PRUEBA 1: Agregando nodo [E] conectado con [C] (costo 5)...";
-    miRed.agregarEnrutador('E');
-    miRed.agregarOActualizarEnlace('C', 'E', 5);
-    miRed.mostrarDiagramaRed();
+    // 3. Mostramos las tablas detalladas de A y D (como en el PDF)
+    miRed.mostrarTablaEnrutador('A');
+    miRed.mostrarTablaEnrutador('D');
 
-    // 3. Simulamos prueba de sustentacion: Eliminar el nodo 'D' de la red
-    cout << "\n>>> PRUEBA 2: Eliminando el nodo [D] de la topologia...";
+    // 4. Consultamos el envio de un paquete de A hacia C
+    miRed.consultarRutaYCosto('A', 'C');
+
+    // 5. PRUEBA DE SUSTENTACION: ¿Que pasa con la ruta de A a C si se cae el nodo D?
+    cout << "\n>>> SIMULACION DE FALLO: Eliminando el nodo [D] de la red...";
     miRed.eliminarEnrutador('D');
-    miRed.mostrarDiagramaRed();
+
+    miRed.mostrarTablaEnrutador('A');
+    miRed.consultarRutaYCosto('A', 'C');
 
     return 0;
 }
