@@ -288,3 +288,110 @@ void Red::mostrarTodasLasTablas() const {
 void Red::limpiarRed() {
     enrutadores.clear();
 }
+
+// ARCHIVOS Y GENERACION ALEATORIA
+
+bool Red::cargarDesdeArchivo(const char* nombreArchivo) {
+    ifstream archivo(nombreArchivo);
+    if (!archivo.is_open()) {
+        return false; // No se pudo abrir o no existe el archivo
+    }
+
+    limpiarRed();
+
+    char origen, destino;
+    int costo;
+
+    // Lectura limpia con tipos nativos (char, char, int)
+    while (archivo >> origen >> destino >> costo) {
+        if (origen != destino && costo > 0) {
+            if (!existeEnrutador(origen)) {
+                enrutadores[origen] = Enrutador(origen);
+            }
+            if (!existeEnrutador(destino)) {
+                enrutadores[destino] = Enrutador(destino);
+            }
+            enrutadores[origen].conectarVecino(destino, costo);
+            enrutadores[destino].conectarVecino(origen, costo);
+        }
+    }
+
+    archivo.close();
+    actualizarTablas(); // Calculamos Dijkstra para toda la red cargada
+    return true;
+}
+
+bool Red::guardarEnArchivo(const char* nombreArchivo) const {
+    ofstream archivo(nombreArchivo);
+    if (!archivo.is_open()) {
+        return false;
+    }
+
+    for (const auto& par : enrutadores) {
+        char origen = par.first;
+        const map<char, int>& vecinos = par.second.getVecinos();
+
+        for (const auto& enlace : vecinos) {
+            char destino = enlace.first;
+            int costo = enlace.second;
+
+            // Como la red es bidireccional, guardamos solo cuando origen < destino
+            // para no duplicar el mismo cable dos veces en el archivo .txt
+            if (origen < destino) {
+                archivo << origen << " " << destino << " " << costo << "\n";
+            }
+        }
+    }
+
+    archivo.close();
+    return true;
+}
+
+void Red::generarRedAleatoria(int cantidadNodos, int costoMaximo, const char* archivoSalida) {
+    if (cantidadNodos < 2) cantidadNodos = 2;
+    if (cantidadNodos > 26) cantidadNodos = 26; // Maximo de 'A' a 'Z'
+    if (costoMaximo < 1) costoMaximo = 10;
+
+    limpiarRed();
+
+    // Contenedor 5: std::vector<char> para acceder a los nodos por indice aleatorio
+    vector<char> listaNodos;
+    for (int i = 0; i < cantidadNodos; ++i) {
+        char id = 'A' + i;
+        enrutadores[id] = Enrutador(id);
+        listaNodos.push_back(id);
+    }
+
+    // 1. Garantizar que la red sea conexa (arbol base) conectando cada nuevo nodo con uno anterior
+    for (int i = 1; i < cantidadNodos; ++i) {
+        int indicePrevio = rand() % i;
+        char u = listaNodos[i];
+        char v = listaNodos[indicePrevio];
+        int costo = 1 + (rand() % costoMaximo);
+
+        enrutadores[u].conectarVecino(v, costo);
+        enrutadores[v].conectarVecino(u, costo);
+    }
+
+    // 2. Agregar enlaces adicionales al azar para crear caminos alternativos (ciclos)
+    int enlacesExtra = cantidadNodos / 2 + (rand() % cantidadNodos);
+    for (int i = 0; i < enlacesExtra; ++i) {
+        char u = listaNodos[rand() % cantidadNodos];
+        char v = listaNodos[rand() % cantidadNodos];
+
+        if (u != v && !enrutadores[u].tieneVecino(v)) {
+            int costo = 1 + (rand() % costoMaximo);
+            enrutadores[u].conectarVecino(v, costo);
+            enrutadores[v].conectarVecino(u, costo);
+        }
+    }
+
+    // Si se especifico un nombre de archivo, guardamos la topologia y la recargamos desde el archivo
+    // cumpliendo literalmente con la sugerencia del punto 5 de la guia
+    if (archivoSalida != nullptr) {
+        guardarEnArchivo(archivoSalida);
+        cargarDesdeArchivo(archivoSalida);
+    } else {
+        actualizarTablas();
+    }
+}

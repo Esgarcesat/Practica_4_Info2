@@ -3,6 +3,9 @@
 
 #include "Enrutador.h"
 #include <iostream>
+#include <fstream>
+#include <cstdlib>
+#include <ctime>
 #include <map>
 #include <set>
 #include <queue>
@@ -18,7 +21,6 @@ private:
     // Contenedor 1: std::map
     map<char, Enrutador> enrutadores;
 
-    // Metodo interno que ejecuta Dijkstra para un enrutador especifico
     void calcularDijkstraDesde(char idOrigen);
 
 public:
@@ -33,7 +35,7 @@ public:
     bool agregarOActualizarEnlace(char idOrigen, char idDestino, int costo);
     bool eliminarEnlace(char idOrigen, char idDestino);
 
-    // --- Algoritmo de Enrutamiento y Consultas (Fase 3) ---
+    // --- Algoritmo de Enrutamiento y Consultas ---
     void actualizarTablas();
     void consultarRutaYCosto(char idOrigen, char idDestino) const;
 
@@ -42,6 +44,11 @@ public:
     void mostrarMatrizCostosMinimos() const;
     void mostrarTablaEnrutador(char id) const;
     void mostrarTodasLasTablas() const;
+
+    // --- Archivos y Generacion Aleatoria (Fase 4) ---
+    bool cargarDesdeArchivo(const char* nombreArchivo);
+    bool guardarEnArchivo(const char* nombreArchivo) const;
+    void generarRedAleatoria(int cantidadNodos, int costoMaximo, const char* archivoSalida = nullptr);
 
     void limpiarRed();
 };
