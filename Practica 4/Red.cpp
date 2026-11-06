@@ -49,14 +49,20 @@ bool Red::agregarOActualizarEnlace(char idOrigen, char idDestino, int costo) {
 }
 
 bool Red::eliminarEnlace(char idOrigen, char idDestino) {
+    // 1. Verificar que ambos enrutadores existan en la topologia
     if (!existeEnrutador(idOrigen) || !existeEnrutador(idDestino)) {
+        return false;
+    }
+
+    // 2. Verificar que realmente exista un enlace fisico directo entre ellos
+    if (!enrutadores[idOrigen].tieneVecino(idDestino)) {
         return false;
     }
 
     enrutadores[idOrigen].desconectarVecino(idDestino);
     enrutadores[idDestino].desconectarVecino(idOrigen);
 
-    actualizarTablas(); // Recalculo automatico al romper un enlace
+    actualizarTablas(); // Recalculo automatico al romper el enlace
     return true;
 }
 
@@ -147,11 +153,11 @@ void Red::consultarRutaYCosto(char idOrigen, char idDestino) const {
     cout << "--------------------------------------------------------------------\n";
 
     if (!existeEnrutador(idOrigen)) {
-        cout << "  [!] Error: El enrutador origen [" << idOrigen << "] no existe en la red.\n";
+        cout << "  Error: El enrutador origen [" << idOrigen << "] no existe en la red.\n";
         return;
     }
     if (!existeEnrutador(idDestino)) {
-        cout << "  [!] Error: El enrutador destino [" << idDestino << "] no existe en la red.\n";
+        cout << "  Error: El enrutador destino [" << idDestino << "] no existe en la red.\n";
         return;
     }
 
@@ -188,13 +194,13 @@ void Red::mostrarDiagramaRed() const {
         return;
     }
 
-    cout << "--- 1. Esquema de Enlaces Fisicos Directos ---\n";
+    cout << " 1. Esquema de Enlaces Fisicos Directos \n";
     for (const auto& par : enrutadores) {
         cout << "  ";
         par.second.mostrarVecinos();
     }
 
-    cout << "\n--- 2. Matriz de Adyacencia (Costos de enlaces directos) ---\n";
+    cout << "\n 2. Matriz de Adyacencia (Costos de enlaces directos) \n";
     cout << "      ";
     for (const auto& col : enrutadores) {
         cout << setw(6) << col.first;
@@ -271,13 +277,13 @@ void Red::mostrarTablaEnrutador(char id) const {
     if (it != enrutadores.end()) {
         it->second.mostrarTablaEnrutamiento();
     } else {
-        cout << "\n[!] Error: El enrutador [" << id << "] no existe en la red.\n";
+        cout << "\n Error: El enrutador [" << id << "] no existe en la red.\n";
     }
 }
 
 void Red::mostrarTodasLasTablas() const {
     if (enrutadores.empty()) {
-        cout << "\n[!] La red esta vacia.\n";
+        cout << "\n La red esta vacia.\n";
         return;
     }
     for (const auto& par : enrutadores) {
@@ -294,17 +300,80 @@ void Red::limpiarRed() {
 bool Red::cargarDesdeArchivo(const char* nombreArchivo) {
     ifstream archivo(nombreArchivo);
     if (!archivo.is_open()) {
-        return false; // No se pudo abrir o no existe el archivo
+        cout << "\n  Error critico: No se encontro o no se pudo abrir el archivo '" << nombreArchivo << "'.\n";
+        return false;
     }
 
     limpiarRed();
 
-    char origen, destino;
-    int costo;
+    char linea[256];
+    int numLinea = 0;
+    int enlacesValidos = 0;
+    bool huboErrores = false;
 
-    // Lectura limpia con tipos nativos (char, char, int)
-    while (archivo >> origen >> destino >> costo) {
-        if (origen != destino && costo > 0) {
+    while (archivo.getline(linea, sizeof(linea))) {
+        numLinea++;
+
+        // Ignorar lineas vacias o de solo espacios
+        int i = 0;
+        while (linea[i] == ' ' || linea[i] == '\t' || linea[i] == '\r') {
+            i++;
+        }
+        if (linea[i] == '\0') {
+            continue;
+        }
+
+        char origStr[50], destStr[50], extraStr[50];
+        int costo = 0;
+
+        int leidos = sscanf(linea, "%49s %49s %d %49s", origStr, destStr, &costo, extraStr);
+
+        if (leidos < 3) {
+            cout << "   Error en " << nombreArchivo << " (Linea " << numLinea
+                 << "): Formato incompleto o el costo no es un numero entero -> \"" << linea << "\"\n";
+            huboErrores = true;
+            continue;
+        }
+        if (leidos > 3) {
+            cout << "   Error en " << nombreArchivo << " (Linea " << numLinea
+                 << "): Demasiados datos en la misma linea -> \"" << linea << "\"\n";
+            huboErrores = true;
+            continue;
+        }
+
+        if (origStr[1] != '\0' || !isalpha(origStr[0])) {
+            cout << "   Error en " << nombreArchivo << " (Linea " << numLinea
+                 << "): El origen '" << origStr << "' no es una letra valida (A-Z).\n";
+            huboErrores = true;
+            continue;
+        }
+        if (destStr[1] != '\0' || !isalpha(destStr[0])) {
+            cout << "   Error en " << nombreArchivo << " (Linea " << numLinea
+                 << "): El destino '" << destStr << "' no es una letra valida (A-Z).\n";
+            huboErrores = true;
+            continue;
+        }
+
+        char origen = toupper(origStr[0]);
+        char destino = toupper(destStr[0]);
+
+        if (origen == destino) {
+            cout << "   Error en " << nombreArchivo << " (Linea " << numLinea
+                 << "): Auto-enlace no permitido (Origen '" << origen << "' es igual a Destino '" << destino << "').\n";
+            huboErrores = true;
+            continue;
+        }
+
+        if (costo <= 0) {
+            cout << "   Error en " << nombreArchivo << " (Linea " << numLinea
+                 << "): El costo (" << costo << ") entre [" << origen << "] y [" << destino << "] debe ser mayor a 0.\n";
+            huboErrores = true;
+            continue;
+        }
+
+        // Solo guardamos en memoria si no ha habido errores previos,
+        // pero seguimos recorriendo el archivo para reportar TODOS los errores de una vez
+        if (!huboErrores) {
             if (!existeEnrutador(origen)) {
                 enrutadores[origen] = Enrutador(origen);
             }
@@ -313,11 +382,27 @@ bool Red::cargarDesdeArchivo(const char* nombreArchivo) {
             }
             enrutadores[origen].conectarVecino(destino, costo);
             enrutadores[destino].conectarVecino(origen, costo);
+            enlacesValidos++;
         }
     }
 
     archivo.close();
-    actualizarTablas(); // Calculamos Dijkstra para toda la red cargada
+
+    // Si hubo al menos un error en cualquier linea, rechazamos todo el archivo
+    if (huboErrores) {
+        cout << "\n   Carga abortada: El archivo '" << nombreArchivo
+             << "' contiene errores de diseno. Corrijalos antes de continuar.\n";
+        limpiarRed();
+        return false;
+    }
+
+    if (enlacesValidos == 0) {
+        cout << "\n   Topologia invalida: El archivo '" << nombreArchivo << "' esta vacio.\n";
+        limpiarRed();
+        return false;
+    }
+
+    actualizarTablas();
     return true;
 }
 
